@@ -1,0 +1,87 @@
+---
+- name: some basic setting
+  hosts: zabbix-server
+  remote_user: root
+  become: yes
+  become_method: sudo
+
+  tasks:
+   - name: close selinux parmentant
+     lineinfile:
+       dest: /etc/selinux/config
+       regexp: '^SELINUX='
+       line: 'SELINUX=disabled'
+  
+   - name: close selinux immediately
+     selinux:
+       state: disabled
+
+   - name: insert account for zabbix
+     mysql_user: 
+       login_user: root 
+       login_password: 123456 
+       name: zabbix 
+       priv: '*.*:ALL,GRANT' 
+       state: present
+
+   - name: install zabbix rpm from remote repo
+     yum: 
+       name: "http://repo.zabbix.com/zabbix/2.4/rhel/6/x86_64/zabbix-release-2.4-1.el6.noarch.rpm" 
+       state: present
+
+   - name: install some zabbix etc(choose to install)
+     yum: name={{ item }} state=present
+     with_items:
+        - zabbix-server-mysql 
+        - zabbix-web-mysql
+        - zabbix-agent
+
+   - name: install some zabbix etc(must installed)
+     yum: name={{ item }} state=present
+     with_items:
+       - net-snmp-devel 
+       - curl 
+       - curl-devel
+       - zabbix-get
+
+   - name: creat database for zabbix
+     mysql_db:
+      login_user: zabbix  
+      name: zabbix
+      encoding: utf8 
+      state: present 
+
+   - name: import sql about zabbix
+     mysql_db:
+       state: import
+       login_user: root
+       login_password: 123456
+       name: zabbix
+       target: /usr/share/doc/zabbix-server-mysql-2.4.8/create/{{ item }}.sql
+     with_items:
+       - schema
+       - images
+       - data
+     ignore_errors: yes
+
+   - name: replace config file
+     template: 
+       src: zabbix_server.conf
+       dest: /etc/zabbix/zabbix_server.conf
+       owner: root
+       group: zabbix
+       mode: 0640
+
+   - name: edit php config
+     lineinfile: dest=/etc/httpd/conf.d/zabbix.conf regexp="^php_value" insertafter="max_input_time 300$" line="php_value date.timezone Asia/Shanghai"
+
+   - name: start zabbix-server
+     service: name={{ item }} state=started enabled=yes
+     with_items:
+       - zabbix-server 
+       - zabbix-agent
+
+   - name: restart apache
+     service: name=httpd state=restarted
+     ignore_errors: yes
+
