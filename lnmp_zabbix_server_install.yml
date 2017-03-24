@@ -67,20 +67,30 @@
    - name: move zabbix directory to nginx directory
      command: creates="/usr/share/nginx/html/zabbix" mv /usr/share/zabbix/ /usr/share/nginx/html/zabbix
    
-   - name: edit php option post_max_size
-     lineinfile: dest=/etc/php.ini regexp="^post_max_size" line="post_max_size =16M"
-
-   - name: edit php option max_excution_time
-     lineinfile: dest=/etc/php.ini regexp="^max_execution_time" line="max_execution_time =300"
-
-   - name: edit php option max_input_time
-     lineinfile: dest=/etc/php.ini regexp="^max_input_time" line="max_input_time =300"
+   - name: edit php.ini
+     lineinfile: 
+         dest: /etc/php.ini 
+         regexp: "{{ item.regexp }}"
+         line: "{{ item.line }}"
+     with_items:
+        - {
+          regexp: "^post_max_size",
+          line: "post_max_size =16M"
+          }
+        - {
+          regexp: "^max_execution_time",
+          line: "max_execution_time =300"
+          }
+        - {
+          regexp: "^max_input_time",
+          line: "max_input_time =300"
+          }
 
    - name: edit php time zone
      lineinfile: dest=/etc/php.ini regexp="^date.timezone" insertafter="^;date.timezone" line="date.timezone = PRC"
    
    - name: restart php-fpm service
-     service: php-fpm state=restarted
+     service: name=php-fpm state=restarted
 
    - name: replace config file
      template: 
